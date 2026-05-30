@@ -34,6 +34,7 @@ M.cfg = {
     ensure_installed = {},
     border = nil,
     auto_install = false,
+    noauto_install = {},
     highlight = true,
     nohighlight = {},
 }
@@ -41,7 +42,7 @@ M.cfg = {
 M.base_repos = repos
 M.effective_repos = repos
 M.languages = vim.tbl_keys(repos)
-table.sort(M.languages)
 M.filetypes = filetypes
+M.filetype_language = {}
 
 return M

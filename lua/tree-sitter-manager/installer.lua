@@ -173,7 +173,8 @@ function M.remove(lang)
     vim.notify("✕ " .. lang)
 end
 
-function M.install_new(lang, verbose)
+function M.install_new(lang, verbose, callback)
+    callback = callback or function() end
     if not config.effective_repos[lang] then
         if verbose then
             vim.notify("⚠ Parser not found in repos: " .. lang, vim.log.levels.WARN)
@@ -188,7 +189,9 @@ function M.install_new(lang, verbose)
         installed = vim.uv.fs_stat(util.ppath(lang)) ~= nil
     end
     if not installed then
-        M.install(lang)
+        M.install(lang, callback)
+    else
+        callback(true)
     end
 end
 

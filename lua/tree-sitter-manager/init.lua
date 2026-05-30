@@ -10,6 +10,12 @@ M._install_single = installer._install_single
 M.open = ui.open
 M._act = ui._act
 
+local function ishighlight(lang)
+    return state.cfg.highlight
+        and not vim.list_contains(state.cfg.nohighlight, lang)
+        and (state.cfg.highlight == true or vim.list_contains(state.cfg.highlight, lang))
+end
+
 function M.setup(opts)
     state.cfg = vim.tbl_deep_extend("force", state.cfg, opts or {})
 
@@ -21,6 +27,12 @@ function M.setup(opts)
     state.effective_repos = vim.tbl_deep_extend("force", vim.deepcopy(state.base_repos), state.cfg.languages)
     state.languages = vim.tbl_keys(state.effective_repos)
     table.sort(state.languages)
+
+    for lang, fts in pairs(state.filetypes) do
+        for _, ft in ipairs(fts) do
+            state.filetype_language[ft] = lang
+        end
+    end
 
     vim.fn.mkdir(state.cfg.parser_dir, "p")
     vim.fn.mkdir(state.cfg.query_dir, "p")
@@ -44,14 +56,6 @@ function M.setup(opts)
     end
     for _, lang in ipairs(ensure_list) do
         installer.install_new(lang, true)
-    end
-
-    if state.cfg.auto_install then
-        vim.api.nvim_create_autocmd("FileType", {
-            callback = function(a)
-                installer.install_new(a.match)
-            end,
-        })
     end
 
     vim.api.nvim_create_user_command("TSManager", function()
@@ -84,25 +88,35 @@ function M.setup(opts)
         desc = "Remove treesitter parsers",
     })
 
+    if state.cfg.auto_install then
+        vim.api.nvim_create_autocmd("FileType", {
+            callback = function(a)
+                local lang = state.filetype_language[a.match] or a.match
+                installer.install_new(lang, false, function(ok)
+                    if ok and ishighlight(lang) then
+                        vim.treesitter.start(a.buf, a.match)
+                    end
+                end)
+            end,
+            desc = "Auto-install treesitter parsers",
+        })
+    end
+
     if state.cfg.highlight then
-        local highlight_ft = {}
+        local filetypes = {}
         for _, lang in ipairs(state.languages) do
-            if
-                (state.cfg.highlight == true or vim.list_contains(state.cfg.highlight, lang))
-                and not vim.list_contains(state.cfg.nohighlight, lang)
-                and vim.uv.fs_stat(util.ppath(lang))
-            then
-                table.insert(highlight_ft, lang)
-                vim.list_extend(highlight_ft, state.filetypes[lang] or {})
+            if ishighlight(lang) then
+                table.insert(filetypes, lang)
+                vim.list_extend(filetypes, state.filetypes[lang] or {})
             end
         end
-        if #highlight_ft > 0 then
+        if #filetypes > 0 then
             vim.api.nvim_create_autocmd("FileType", {
-                pattern = highlight_ft,
-                callback = function()
-                    vim.treesitter.start()
+                pattern = filetypes,
+                callback = function(a)
+                    pcall(vim.treesitter.start, a.buf, a.match)
                 end,
-                desc = "Auto-enable treesitter for installed parsers",
+                desc = "Auto-enable treesitter highlighting",
             })
         end
     end
