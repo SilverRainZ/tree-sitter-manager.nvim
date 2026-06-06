@@ -147,6 +147,8 @@ function M.install_new(lang, verbose)
         end
     elseif not util.is_installed(lang) then
         M.install(lang)
+    elseif not util.qstat(lang) then
+        copy_queries(lang)
     end
 end
 

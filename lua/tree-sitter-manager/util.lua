@@ -52,6 +52,11 @@ function M.is_only_query(lang)
     return not info or not info.url
 end
 
+function M.qstat(lang)
+    local stat = vim.uv.fs_stat(M.qpath(lang))
+    return stat ~= nil and stat.type == 'directory'
+end
+
 function M.is_installed(lang)
     local path
     if M.is_only_query(lang) then
